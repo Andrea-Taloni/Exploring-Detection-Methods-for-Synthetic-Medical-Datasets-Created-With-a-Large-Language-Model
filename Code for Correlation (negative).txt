@@ -1,0 +1,48 @@
+# Function to adjust pretreatment IOP and VFI values to create a significant negative correlation
+def adjust_for_significant_negative_correlation(pretreatment_iop, pretreatment_vfi, target_corr, iterations=10000, step=0.1):
+    current_corr = np.corrcoef(pretreatment_iop, pretreatment_vfi)[0, 1]
+    best_corr = current_corr
+    best_iop = np.copy(pretreatment_iop).astype(float)  # Ensure float type for adjustments
+    best_vfi = np.copy(pretreatment_vfi).astype(float)
+
+    for _ in range(iterations):
+        # Randomly select a subset of values to adjust
+        adjustment_indices = np.random.choice(len(best_iop), size=int(len(best_iop) * 0.1), replace=False)
+        
+        # Adjust IOP and VFI values in opposite directions
+        iop_adjustment = np.random.normal(0, step, len(adjustment_indices))
+        vfi_adjustment = -iop_adjustment  # Negative adjustment for VFI
+
+        # Apply adjustments
+        new_iop = np.copy(best_iop)
+        new_vfi = np.copy(best_vfi)
+        new_iop[adjustment_indices] += iop_adjustment
+        new_vfi[adjustment_indices] += vfi_adjustment
+
+        # Ensure the values are within their respective ranges
+        new_iop = np.clip(new_iop, 15, 40)  # Preserving the range for IOP
+        new_vfi = np.clip(new_vfi, 40, 90)  # Preserving the range for VFI
+
+        # Calculate new correlation
+        new_corr = np.corrcoef(new_iop, new_vfi)[0, 1]
+
+        # Update best values if the correlation improved towards the target
+        if abs(target_corr - new_corr) < abs(target_corr - best_corr):
+            best_iop = new_iop
+            best_vfi = new_vfi
+            best_corr = new_corr
+
+    return best_iop.astype(int), best_vfi.astype(int), best_corr
+
+# Targeting a significant negative correlation of -0.50
+target_negative_correlation = -0.50
+
+# Applying the adjustment method for significant negative correlation
+adjusted_pretreatment_iop_neg_corr, adjusted_pretreatment_vfi_neg_corr, achieved_negative_correlation = adjust_for_significant_negative_correlation(
+    new_data['Pretreatment IOP'].to_numpy(),
+    new_data['Pretreatment VFI'].to_numpy(),
+    target_corr=target_negative_correlation
+)
+
+# Checking the final correlation
+achieved_negative_correlation

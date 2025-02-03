@@ -1,0 +1,46 @@
+# Reload the names data with the correct approach
+names_df = pd.read_excel('/mnt/data/List of Surnames and Names.xlsx')
+
+# Randomly select 250 unique patients
+selected_patients = names_df.sample(n=total_patients, random_state=1)
+
+# Combine surname and given name for full name
+selected_patients['Surname and Name'] = selected_patients['Surname'] + " " + selected_patients['GivenName']
+
+# Rename gender column to 'Sex' and map it to 'M' and 'F'
+selected_patients.rename(columns={'Gender': 'Sex'}, inplace=True)
+selected_patients['Sex'] = selected_patients['Sex'].map({'male': 'M', 'female': 'F'})
+
+# Reset the index
+selected_patients.reset_index(drop=True, inplace=True)
+
+# Assign eyes to each patient
+selected_patients['Eye'] = np.random.choice(['RE', 'LE'], size=len(selected_patients))
+
+# Calculate how many more eyes are needed and assign them
+additional_eyes_needed = total_eyes - len(selected_patients)
+additional_eyes_patients = random.sample(list(selected_patients.index), additional_eyes_needed)
+additional_eyes_df = selected_patients.loc[additional_eyes_patients].copy()
+additional_eyes_df['Eye'] = additional_eyes_df['Eye'].apply(lambda x: 'LE' if x == 'RE' else 'RE')
+
+# Combine the original and additional dataframes
+complete_patients_df_restarted = pd.concat([selected_patients, additional_eyes_df])
+
+# Reset index and sort by full name for clarity
+complete_patients_df_restarted.reset_index(drop=True, inplace=True)
+complete_patients_df_restarted.sort_values(by='Surname and Name', inplace=True)
+
+# Add "Eye Number" column
+complete_patients_df_restarted['Eye Number'] = complete_patients_df_restarted.groupby('Surname and Name').cumcount() + 1
+complete_patients_df_restarted['Eye Number'] = complete_patients_df_restarted['Eye Number'].apply(lambda x: '1st' if x == 1 else '2nd')
+
+# Drop the separated columns for Surname and GivenName
+complete_patients_df_restarted.drop(['Surname', 'GivenName'], axis=1, inplace=True)
+
+# Reordering columns with 'Surname and Name' as the first column, followed by 'Sex'
+ordered_columns = ['Surname and Name', 'Sex', 'Eye', 'Eye Number']
+complete_patients_df_reordered = complete_patients_df_restarted[ordered_columns]
+
+# Display the first few rows of the reordered DataFrame
+complete_patients_df_reordered.head()
+

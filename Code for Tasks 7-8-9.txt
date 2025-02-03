@@ -1,0 +1,157 @@
+from scipy import stats
+
+# TASK 7
+
+# Split the DataFrame into two equal parts
+half_length = len(complete_patients_df) // 2
+first_half = complete_patients_df.iloc[:half_length]
+second_half = complete_patients_df.iloc[half_length:]
+
+# Assign 'DALK' to the first half and 'PK' to the second half
+first_half['Treatment'] = 'DALK'
+second_half['Treatment'] = 'PK'
+
+# Combine the two halves back into one DataFrame
+complete_patients_df = pd.concat([first_half, second_half])
+
+# Check if the treatments are equally distributed
+treatment_counts = complete_patients_df['Treatment'].value_counts()
+
+# Save the dataset with the adjusted treatments
+output_file_path_with_adjusted_treatments = '/mnt/data/Patient_Dataset_With_Adjusted_Treatments.xlsx'
+complete_patients_df.to_excel(output_file_path_with_adjusted_treatments, index=False)
+
+treatment_counts, output_file_path_with_adjusted_treatments
+
+# TASK 8: Preoperative BSCVA
+# Generate values and round to 1 decimal
+complete_patients_df['Preoperative BSCVA'] = np.round(np.random.normal(1.00, 0.3, len(complete_patients_df)), 1)
+complete_patients_df['Preoperative BSCVA'] = complete_patients_df['Preoperative BSCVA'].clip(0.5, 1.8)
+
+# Check for statistical difference across treatments for BSCVA
+bscva_ttest = stats.ttest_ind(
+    complete_patients_df[complete_patients_df['Treatment'] == 'DALK']['Preoperative BSCVA'],
+    complete_patients_df[complete_patients_df['Treatment'] == 'PK']['Preoperative BSCVA']
+)
+bscva_ttest_pvalue = bscva_ttest.pvalue
+
+# TASK 9: Preoperative Topographic Cylinder
+# Generate values and round to 2 decimals
+complete_patients_df['Preoperative Topographic Cylinder'] = np.round(np.random.normal(4.50, 2, len(complete_patients_df)), 2)
+complete_patients_df['Preoperative Topographic Cylinder'] = complete_patients_df['Preoperative Topographic Cylinder'].clip(1.0, 18.0)
+
+# Check for correlation with BSCVA and adjust if necessary
+current_corr, _ = stats.pearsonr(complete_patients_df['Preoperative BSCVA'], complete_patients_df['Preoperative Topographic Cylinder'])
+
+# Check for statistical difference across treatments for Topographic Cylinder
+cylinder_ttest = stats.ttest_ind(
+    complete_patients_df[complete_patients_df['Treatment'] == 'DALK']['Preoperative Topographic Cylinder'],
+    complete_patients_df[complete_patients_df['Treatment'] == 'PK']['Preoperative Topographic Cylinder']
+)
+cylinder_ttest_pvalue = cylinder_ttest.pvalue
+
+# Output relevant results
+bscva_ttest_pvalue, current_corr, cylinder_ttest_pvalue
+
+# Adjusting the Preoperative Topographic Cylinder to achieve the desired correlation with Preoperative BSCVA
+def adjust_for_correlation(target_corr_lower, target_corr_upper, bscva_values, cylinder_values):
+    adjusted_cylinder_values = cylinder_values.copy()
+    current_corr, _ = stats.pearsonr(bscva_values, adjusted_cylinder_values)
+
+    # Adjusting the values to achieve the target correlation
+    while not (target_corr_lower <= current_corr <= target_corr_upper):
+        for idx in range(len(bscva_values)):
+            # Generate a new value for the cylinder within the specified range
+            new_value = np.round(np.random.normal(4.50, 2), 2)
+            new_value = max(min(new_value, 18.0), 1.0)
+            adjusted_cylinder_values[idx] = new_value
+
+        # Recalculate the correlation
+        current_corr, _ = stats.pearsonr(bscva_values, adjusted_cylinder_values)
+
+    return adjusted_cylinder_values
+
+# Apply adjustment to achieve the desired correlation
+adjusted_cylinder_values = adjust_for_correlation(0.10, 0.20, complete_patients_df['Preoperative BSCVA'].to_numpy(), complete_patients_df['Preoperative Topographic Cylinder'].to_numpy())
+
+# Update the DataFrame with the adjusted Topographic Cylinder values
+complete_patients_df['Preoperative Topographic Cylinder'] = adjusted_cylinder_values
+
+# Recheck the correlation and the statistical difference across treatments for the adjusted Topographic Cylinder
+new_corr, _ = stats.pearsonr(complete_patients_df['Preoperative BSCVA'], complete_patients_df['Preoperative Topographic Cylinder'])
+cylinder_ttest_adjusted = stats.ttest_ind(
+    complete_patients_df[complete_patients_df['Treatment'] == 'DALK']['Preoperative Topographic Cylinder'],
+    complete_patients_df[complete_patients_df['Treatment'] == 'PK']['Preoperative Topographic Cylinder']
+)
+cylinder_ttest_pvalue_adjusted = cylinder_ttest_adjusted.pvalue
+
+new_corr, cylinder_ttest_pvalue_adjusted
+
+# Code from "Code for ChiSquare Test.txt" for calculating the final last digit
+def final_last_digit(number):
+    number_str = str(number)
+    if '.' in number_str:  # If the number is a decimal
+        integer_part, decimal_part = number_str.split('.')
+        if decimal_part.rstrip('0') == '':  # If decimal part is all zeros
+            return int(integer_part[-1])  # Return the last digit of the integer part
+        else:
+            return int(decimal_part.rstrip('0')[-1])  # Return the last non-zero digit of the decimal part
+    else:  # If the number is an integer
+        return int(number_str[-1])
+
+# Apply this method to extract the last digit of the Preoperative Topographic Cylinder
+complete_patients_df['Preop Topo Cylinder Last Digit'] = complete_patients_df['Preoperative Topographic Cylinder'].apply(final_last_digit)
+
+# Counting the occurrences of each last digit
+last_digit_counts = complete_patients_df['Preop Topo Cylinder Last Digit'].value_counts().sort_index()
+
+# Performing the chi-square test for uniform distribution
+chi_square_test_last_digit_custom = chisquare(last_digit_counts)
+
+# Chi-square test p-value
+p_value_last_digit_custom = chi_square_test_last_digit_custom.pvalue
+
+# Display the p-value and check if it is greater than 0.05 for uniform distribution
+uniform_last_digit_distribution_custom = p_value_last_digit_custom > 0.05
+p_value_last_digit_custom, uniform_last_digit_distribution_custom
+
+
+# Adjusting Preoperative Topographic Cylinder values to achieve uniform distribution of last digits
+def adjust_for_uniform_last_digit(values):
+    adjusted_values = values.copy()
+    last_digit_counts = adjusted_values.apply(lambda x: int(str(x)[-1])).value_counts().sort_index()
+
+    # Adjusting values until the last digits are uniformly distributed
+    while chisquare(last_digit_counts).pvalue < 0.05:
+        for idx in range(len(adjusted_values)):
+            # Adjust the value slightly to change the last digit
+            adjustment = np.round(np.random.uniform(-0.09, 0.09), 2)
+            new_value = adjusted_values[idx] + adjustment
+            new_value = max(min(new_value, 18.0), 1.0)
+            adjusted_values[idx] = np.round(new_value, 2)
+
+        last_digit_counts = adjusted_values.apply(lambda x: int(str(x)[-1])).value_counts().sort_index()
+
+    return adjusted_values
+
+# Apply adjustment to achieve uniform distribution of the last digit
+adjusted_topo_cylinder_values = adjust_for_uniform_last_digit(complete_patients_df['Preoperative Topographic Cylinder'])
+
+# Update the DataFrame with the adjusted Topographic Cylinder values
+complete_patients_df['Preoperative Topographic Cylinder'] = adjusted_topo_cylinder_values
+
+# Recheck the last digit distribution
+new_last_digit_counts = complete_patients_df['Preoperative Topographic Cylinder'].apply(lambda x: int(str(x)[-1])).value_counts().sort_index()
+new_chi_square_test_last_digit = chisquare(new_last_digit_counts)
+new_p_value_last_digit = new_chi_square_test_last_digit.pvalue
+
+# Saving the dataset with adjusted Preoperative Topographic Cylinder
+output_file_path_adjusted_cylinder = '/mnt/data/Patient_Dataset_Adjusted_Preoperative_Topographic_Cylinder.xlsx'
+complete_patients_df.to_excel(output_file_path_adjusted_cylinder, index=False)
+
+new_p_value_last_digit, output_file_path_adjusted_cylinder
+
+
+
+
+

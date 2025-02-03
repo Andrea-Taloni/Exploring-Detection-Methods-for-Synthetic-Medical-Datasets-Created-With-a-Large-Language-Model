@@ -1,0 +1,47 @@
+# Function to adjust posttreatment IOP values to increase positive correlation with pretreatment IOP
+def adjust_for_stronger_positive_correlation(pretreatment_iop, posttreatment_iop, target_corr, iterations=10000, step=0.1):
+    current_corr = np.corrcoef(pretreatment_iop, posttreatment_iop)[0, 1]
+    best_corr = current_corr
+    best_post_iop = np.copy(posttreatment_iop).astype(float)  # Ensure float type for adjustments
+
+    for _ in range(iterations):
+        # Randomly select a subset of values to adjust
+        adjustment_indices = np.random.choice(len(best_post_iop), size=int(len(best_post_iop) * 0.1), replace=False)
+        
+        # Adjust posttreatment IOP values
+        post_iop_adjustment = np.random.normal(0, step, len(adjustment_indices))
+
+        # Apply adjustments
+        new_post_iop = np.copy(best_post_iop)
+        new_post_iop[adjustment_indices] += post_iop_adjustment
+
+        # Ensure the values are within the specified range for posttreatment IOP
+        new_post_iop = np.clip(new_post_iop, 10, 25)
+
+        # Calculate new correlation
+        new_corr = np.corrcoef(pretreatment_iop, new_post_iop)[0, 1]
+
+        # Update best values if the correlation improved towards the target
+        if abs(target_corr - new_corr) < abs(target_corr - best_corr):
+            best_post_iop = new_post_iop
+            best_corr = new_corr
+
+    return best_post_iop.astype(int), best_corr
+
+# Targeting a stronger positive correlation
+target_positive_correlation = 0.5  # Targeting a moderate positive correlation
+
+# Applying the adjustment method for stronger positive correlation
+adjusted_posttreatment_iop_pos_corr, achieved_positive_correlation = adjust_for_stronger_positive_correlation(
+    new_data['Pretreatment IOP'].to_numpy(),
+    new_data['Posttreatment IOP'].to_numpy(),
+    target_corr=target_positive_correlation
+)
+
+# Checking the final correlation
+achieved_positive_correlation
+
+
+
+
+

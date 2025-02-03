@@ -1,0 +1,36 @@
+import numpy as np
+from scipy.stats import chisquare
+
+# Function to generate a random birthdate ensuring it doesn't match the surgery date
+def generate_birthdate(surgery_date):
+    while True:
+        birth_month = random.randint(1, 12)
+        # Handle February and months with 30 days
+        if birth_month == 2:
+            birth_day = random.randint(1, 28)
+        elif birth_month in [4, 6, 9, 11]:
+            birth_day = random.randint(1, 30)
+        else:
+            birth_day = random.randint(1, 31)
+        
+        birthdate = f"{str(birth_day).zfill(2)}/{str(birth_month).zfill(2)}"
+        if birthdate != surgery_date[0:5]:  # Only comparing day and month
+            return birthdate
+
+# Generate birthdates for the patients with "1st" eye number only
+first_eye_patients = complete_patients_df[complete_patients_df['Eye Number'] == '1st'].copy()
+first_eye_patients['Birthdate'] = first_eye_patients['Date of Surgery'].apply(generate_birthdate)
+
+# Extract the day and month for chi-square test
+first_eye_patients['Birth Day'] = first_eye_patients['Birthdate'].apply(lambda x: int(x.split('/')[0]))
+first_eye_patients['Birth Month'] = first_eye_patients['Birthdate'].apply(lambda x: int(x.split('/')[1]))
+
+# Perform chi-square tests for uniform distribution
+day_counts = first_eye_patients['Birth Day'].value_counts().sort_index()
+month_counts = first_eye_patients['Birth Month'].value_counts().sort_index()
+
+chi_square_test_days = chisquare(day_counts)
+chi_square_test_months = chisquare(month_counts)
+
+chi_square_test_days.pvalue, chi_square_test_months.pvalue
+

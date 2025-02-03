@@ -1,0 +1,72 @@
+# Code from "Code for Task 6.txt" to generate random ages and calculate birth years
+age_mean = 35
+age_min = 18
+age_max = 70
+
+# Function to generate a random age within the specified range
+def generate_random_age(mean, min_age, max_age):
+    while True:
+        age = int(np.random.normal(mean, 10))  # Standard deviation is arbitrary, chosen to be 10 for a broad range
+        if min_age <= age <= max_age:
+            return age
+
+# Generate ages for patients with "1st" in the "Eye Number" column
+first_eye_patients['Age at Surgery'] = first_eye_patients.apply(lambda x: generate_random_age(age_mean, age_min, age_max), axis=1)
+
+# Extract the last digit for chi-square test
+def final_last_digit(number):
+    number_str = str(number)
+    if '.' in number_str:  # If the number is a decimal
+        integer_part, decimal_part = number_str.split('.')
+        if decimal_part.rstrip('0') == '':  # If decimal part is all zeros
+            return int(integer_part[-1])  # Return the last digit of the integer part
+        else:
+            return int(decimal_part.rstrip('0')[-1])  # Return the last non-zero digit of the decimal part
+    else:  # If the number is an integer
+        return int(number_str[-1])
+
+# Applying the final_last_digit function to the Age at Surgery
+age_last_digits = first_eye_patients['Age at Surgery'].apply(final_last_digit).value_counts().sort_index()
+
+# Perform chi-square test for uniform distribution
+chi_square_test_age_last_digit = chisquare(age_last_digits)
+p_value_age_last_digit = chi_square_test_age_last_digit.pvalue
+
+# Check if the p-value is greater than 0.05
+uniform_age_last_digit = p_value_age_last_digit > 0.05
+
+# Function to calculate the birth year based on the age at surgery and date of surgery
+def calculate_birth_year(date_of_surgery, age_at_surgery):
+    surgery_date = datetime.strptime(date_of_surgery, '%d/%m/%Y')
+    birth_year = surgery_date.year - age_at_surgery
+    return birth_year
+
+# Calculate birth year for "1st" eye patients
+first_eye_patients['Birth Year'] = first_eye_patients.apply(lambda x: calculate_birth_year(x['Date of Surgery'], x['Age at Surgery']), axis=1)
+
+# Merge day, month, and year for full birthdate
+first_eye_patients['Full Birthdate'] = first_eye_patients['Birthdate'].astype(str) + '/' + first_eye_patients['Birth Year'].astype(str)
+
+# Update the main dataframe with full birthdates and age at surgery for "1st" eye patients
+complete_patients_df.loc[complete_patients_df['Eye Number'] == '1st', ['Age at Surgery', 'Full Birthdate']] = first_eye_patients[['Age at Surgery', 'Full Birthdate']]
+
+# Copy-paste the full birthdate for records with "2nd" in the "Eye Number"
+for name in first_eye_patients['Surname and Name']:
+    full_birthdate = first_eye_patients[first_eye_patients['Surname and Name'] == name]['Full Birthdate'].iloc[0]
+    complete_patients_df.loc[complete_patients_df['Surname and Name'] == name, 'Full Birthdate'] = full_birthdate
+
+# Function to recalculate age at surgery based on full birthdate and date of surgery
+def recalculate_age_at_surgery(full_birthdate, date_of_surgery):
+    birthdate = datetime.strptime(full_birthdate, '%d/%m/%Y')
+    surgery_date = datetime.strptime(date_of_surgery, '%d/%m/%Y')
+    return surgery_date.year - birthdate.year - ((surgery_date.month, surgery_date.day) < (birthdate.month, birthdate.day))
+
+# Recalculate age for "2nd" eye patients
+complete_patients_df['Age at Surgery'] = complete_patients_df.apply(lambda x: recalculate_age_at_surgery(x['Full Birthdate'], x['Date of Surgery']), axis=1)
+
+# Remove the column containing only days/months for the birthdate
+complete_patients_df.drop(columns=['Birthdate'], inplace=True)
+
+# Check if uniform distribution of last digit of age is achieved and display the p-value
+uniform_age_last_digit, p_value_age_last_digit
+
